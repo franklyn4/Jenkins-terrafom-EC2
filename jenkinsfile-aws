@@ -1,0 +1,45 @@
+
+/* groovylint-disable-next-line CompileStatic */
+pipeline {
+    agent any
+
+    parameters  {
+        choice choices: ['', 'apply', 'destroy'],
+        description: 'Select action to perform',
+        name: 'action'
+    }
+
+    stages {
+        stage('Git checkout') {
+            steps {
+                checkout([$class: 'GitSCM',
+                      branches: [[name: '*/Feature']],
+                      extensions: [],
+                      userRemoteConfigs: [[url: 'https://bitbucket.org/mydpg/dpg-assets/src/Feature/simple%20ec2.tf']]])
+                echo 'CHECKOUT SUCCESSFUL'
+            }
+        }
+
+        stage('Deploy to AWS') {
+            steps {
+                withCredentials([aws(credentialsId: 'Aws-to-jenkins',
+               accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+               secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                    // AWS credentials are now available as environment variables
+
+                    echo 'JENKINS HAS ACCESS TO YOUR AWS ACCOUNT'
+
+                    bat 'terraform init'
+
+                    bat '''
+                    set action=%action%
+
+                    (Terraform %action% is in progress)
+
+                    (terraform %action% --auto-approve)
+                    '''
+               }
+            }
+        }
+    }
+}
